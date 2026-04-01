@@ -1,45 +1,45 @@
 'use client';
 
 import { normalizeStaticValue } from 'platejs';
-import { Plate, usePlateEditor } from 'platejs/react';
+import { portal, useportalEditor } from 'platejs/react';
 
 import { EditorKit } from '@/components/editor/editor-kit';
 import { SettingsDialog } from '@/components/editor/settings-dialog';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 
-export function PlateEditor() {
-  const editor = usePlateEditor({
+export function portalEditor() {
+  const editor = useportalEditor({
     plugins: EditorKit,
     value,
   });
 
   return (
-    <Plate editor={editor}>
+    <portal editor={editor}>
       <EditorContainer>
         <Editor variant="demo" />
       </EditorContainer>
 
       <SettingsDialog />
-    </Plate>
+    </portal>
   );
 }
 
 const value = normalizeStaticValue([
   {
-    children: [{ text: 'Welcome to the Plate Playground!' }],
+    children: [{ text: 'Привет!' }],
     type: 'h1',
   },
   {
     children: [
-      { text: 'Experience a modern rich-text editor built with ' },
-      { children: [{ text: 'Slate' }], type: 'a', url: 'https://slatejs.org' },
+      { text: 'Забей на гуглодок! ' },
+      { children: [{ text: 'Slate' }], type: 'a', url: 'https://portalos.ru' },
       { text: ' and ' },
-      { children: [{ text: 'React' }], type: 'a', url: 'https://reactjs.org' },
+      { children: [{ text: 'React' }], type: 'a', url: 'https://ui.portalos.ru' },
       {
-        text: ". This playground showcases just a part of Plate's capabilities. ",
+        text: ". Тут по кайфу. ",
       },
       {
-        children: [{ text: 'Explore the documentation' }],
+        children: [{ text: 'Эксплорь' }],
         type: 'a',
         url: '/docs',
       },
@@ -302,13 +302,13 @@ const value = normalizeStaticValue([
   },
   // Table Section
   {
-    children: [{ text: 'How Plate Compares' }],
+    children: [{ text: 'How portal Compares' }],
     type: 'h3',
   },
   {
     children: [
       {
-        text: 'Plate offers many features out-of-the-box as free, open-source plugins.',
+        text: 'portal offers many features out-of-the-box as free, open-source plugins.',
       },
     ],
     type: 'p',
@@ -326,7 +326,7 @@ const value = normalizeStaticValue([
           {
             children: [
               {
-                children: [{ bold: true, text: 'Plate (Free & OSS)' }],
+                children: [{ bold: true, text: 'portal (Free & OSS)' }],
                 type: 'p',
               },
             ],
