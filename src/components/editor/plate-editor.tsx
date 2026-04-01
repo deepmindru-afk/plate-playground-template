@@ -1,45 +1,45 @@
 'use client';
 
 import { normalizeStaticValue } from 'platejs';
-import { portal, useportalEditor } from 'platejs/react';
+import { Plate, usePlateEditor } from 'platejs/react';
 
 import { EditorKit } from '@/components/editor/editor-kit';
 import { SettingsDialog } from '@/components/editor/settings-dialog';
 import { Editor, EditorContainer } from '@/components/ui/editor';
 
-export function portalEditor() {
-  const editor = useportalEditor({
+export function PlateEditor() {
+  const editor = usePlateEditor({
     plugins: EditorKit,
     value,
   });
 
   return (
-    <portal editor={editor}>
+    <Plate editor={editor}>
       <EditorContainer>
         <Editor variant="demo" />
       </EditorContainer>
 
       <SettingsDialog />
-    </portal>
+    </Plate>
   );
 }
 
 const value = normalizeStaticValue([
   {
-    children: [{ text: 'Привет!' }],
+    children: [{ text: 'Welcome to the Portal Playground!' }],
     type: 'h1',
   },
   {
     children: [
-      { text: 'Забей на гуглодок! ' },
+      { text: 'Experience a modern rich-text editor built with ' },
       { children: [{ text: 'Slate' }], type: 'a', url: 'https://portalos.ru' },
       { text: ' and ' },
       { children: [{ text: 'React' }], type: 'a', url: 'https://ui.portalos.ru' },
       {
-        text: ". Тут по кайфу. ",
+        text: ". This playground showcases just a part of Portal's capabilities. ",
       },
       {
-        children: [{ text: 'Эксплорь' }],
+        children: [{ text: 'Explore the documentation' }],
         type: 'a',
         url: '/docs',
       },
@@ -302,13 +302,13 @@ const value = normalizeStaticValue([
   },
   // Table Section
   {
-    children: [{ text: 'How portal Compares' }],
+    children: [{ text: 'How Portal Compares' }],
     type: 'h3',
   },
   {
     children: [
       {
-        text: 'portal offers many features out-of-the-box as free, open-source plugins.',
+        text: 'Portal offers many features out-of-the-box as free, open-source plugins.',
       },
     ],
     type: 'p',
@@ -326,7 +326,7 @@ const value = normalizeStaticValue([
           {
             children: [
               {
-                children: [{ bold: true, text: 'portal (Free & OSS)' }],
+                children: [{ bold: true, text: 'Portal (Free & OSS)' }],
                 type: 'p',
               },
             ],
