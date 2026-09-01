@@ -4,17 +4,12 @@
     "autogoal": {
       "source": "udecode/dotai",
       "sourceType": "github",
-      "computedHash": "b39af211b4e83be092b60f376eac2b58aad58089d904a73058d33f36610ad93a"
+      "computedHash": "3671ba865d2171491a24669737f67fadcb3c4a0d5876dd9ec22205ec5d2c42c4"
     },
     "autoreview": {
       "source": "openclaw/agent-skills",
       "sourceType": "github",
-      "computedHash": "d4504560d06faeb839c45dce60958d61fff9f18a7530e5e4b343775457799345"
-    },
-    "debug": {
-      "source": "udecode/dotai",
-      "sourceType": "github",
-      "computedHash": "0c74e2022d4b01170526cc5aabd386dd76f9a65e8b23df92a947bb52504e26b1"
+      "computedHash": "baeb5ec8145aa85e3bec7b07c73ad1edaa75c3e396b399c3865ac8e7960e6bb1"
     },
     "orchestrator": {
       "source": "udecode/dotai",
@@ -26,10 +21,15 @@
       "sourceType": "github",
       "computedHash": "8c24990b50f431a570f3ad1f60632dee154431861547103047f6ce80092ca734"
     },
+    "resolve-pr-feedback": {
+      "source": "udecode/dotai",
+      "sourceType": "github",
+      "computedHash": "78cdc1f7cb0fc64a75bdf5ee0ee61e951e5a8e5152dc978d42e9da130fd9dd73"
+    },
     "shadcn": {
       "source": "shadcn/ui",
       "sourceType": "github",
-      "computedHash": "ac9d0d69caac7de1d1e5647f3db3bcd2f13af355d6b3a78780fbf7fc80e8dca0"
+      "computedHash": "d81caa0f86aabab65b25e302d454f23a3328760386ed9078345584c0d5c8058e"
     },
     "tdd": {
       "source": "udecode/dotai",
@@ -49,7 +49,7 @@
     "video-transcripts": {
       "source": "udecode/dotai",
       "sourceType": "github",
-      "computedHash": "dfce0b8ea81350223ee9967acbad18eb589e17aebf91e87e94b07dfaa86db471"
+      "computedHash": "76081a34506afc0fccb812ef41286247dd954b8b22af435171da7fd9c06bac95"
     }
   }
 }
