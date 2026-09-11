@@ -18,6 +18,8 @@ import { KEYS, NodeApi, nanoid, TextApi, type TNode } from 'platejs';
 import { type PlateEditor, useEditorRef, usePluginOption } from 'platejs/react';
 import * as React from 'react';
 import { aiChatPlugin } from '@/components/editor/plugins/ai-kit';
+import { buildCommandContext } from '@/lib/ai-command-context';
+import { backendUrl } from '@/lib/backend';
 import { discussionPlugin } from './plugins/discussion-kit';
 
 export type ToolName = 'comment' | 'edit' | 'generate';
@@ -70,6 +72,17 @@ function createChatTransport({
         ...initBody,
         ...bodyOptions,
       };
+
+      // The Python backend can't serialize Slate; compute the markdown context
+      // client-side (against a transient clone) and hand it over in ctx.
+      if (body.ctx) {
+        const { features, markdown } = buildCommandContext(body.ctx);
+        body.ctx = {
+          ...body.ctx,
+          features,
+          markdown,
+        };
+      }
 
       const res = await fetch(input, {
         ...init,
@@ -172,7 +185,7 @@ export const useChat = () => {
   const transport = React.useMemo(
     () =>
       createChatTransport({
-        api: options.api || '/api/ai/command',
+        api: options.api || backendUrl('/api/ai/command'),
         abortControllerRef,
         editor,
       }),

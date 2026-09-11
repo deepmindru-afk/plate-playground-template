@@ -1,609 +1,209 @@
 'use client';
 
-import { normalizeStaticValue } from 'platejs';
+import { normalizeStaticValue, type Value } from 'platejs';
 import { Plate, usePlateEditor } from 'platejs/react';
+import * as React from 'react';
 
 import { EditorKit } from '@/components/editor/editor-kit';
 import { SettingsDialog } from '@/components/editor/settings-dialog';
 import { Editor, EditorContainer } from '@/components/ui/editor';
+import { backendUrl } from '@/lib/backend';
+
+type DocMeta = {
+  id: string;
+  title: string;
+  updatedAt: string;
+};
+
+type Doc = DocMeta & {
+  content: Value;
+};
+
+const EMPTY_VALUE = normalizeStaticValue([
+  { children: [{ text: '' }], type: 'p' },
+]);
 
 export function PlateEditor() {
   const editor = usePlateEditor({
     plugins: EditorKit,
-    value,
+    value: EMPTY_VALUE,
   });
 
+  const [docs, setDocs] = React.useState<DocMeta[]>([]);
+  const [docId, setDocId] = React.useState<string | null>(null);
+  const [title, setTitle] = React.useState<string>('Untitled');
+  const [dirty, setDirty] = React.useState(false);
+  const [saving, setSaving] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
+
+  const serverValue = React.useRef<Value | null>(null);
+
+  const markDirty = () => {
+    setDirty(true);
+  };
+
+  const loadDoc = async (id: string | null) => {
+    if (!id) return;
+
+    const res = await fetch(backendUrl(`/api/docs/${id}`));
+    if (!res.ok) return;
+
+    const doc: Doc = await res.json();
+    serverValue.current = doc.content;
+    editor.tf.setValue(normalizeStaticValue(doc.content));
+    setDocId(doc.id);
+    setTitle(doc.title);
+    setDirty(false);
+  };
+
+  // Load the list of documents and open the first one on mount.
+  React.useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const res = await fetch(backendUrl('/api/docs'));
+        const list: DocMeta[] = await res.json();
+
+        if (cancelled) return;
+        setDocs(list);
+
+        if (list.length > 0) {
+          await loadDoc(list[0].id);
+        }
+      } catch {
+        // Backend not running — keep the demo content editable.
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const saveDoc = async () => {
+    setSaving(true);
+
+    const content = editor.children as Value;
+
+    try {
+      const payload = JSON.stringify({
+        title,
+        content: normalizeStaticValue(content),
+      });
+
+      const res = docId
+        ? await fetch(backendUrl(`/api/docs/${docId}`), {
+            body: payload,
+            headers: { 'Content-Type': 'application/json' },
+            method: 'PUT',
+          })
+        : await fetch(backendUrl('/api/docs'), {
+            body: payload,
+            headers: { 'Content-Type': 'application/json' },
+            method: 'POST',
+          });
+
+      const saved: Doc = await res.json();
+
+      serverValue.current = saved.content;
+      setDocId(saved.id);
+      setTitle(saved.title);
+      setDirty(false);
+      setDocs((prev) =>
+        prev.some((d) => d.id === saved.id)
+          ? prev.map((d) =>
+              d.id === saved.id ? { ...d, title: saved.title } : d
+            )
+          : [...prev, saved].sort((a, b) =>
+              b.updatedAt.localeCompare(a.updatedAt)
+            )
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const newDoc = () => {
+    serverValue.current = null;
+    editor.tf.setValue(
+      normalizeStaticValue([{ type: 'p', children: [{ text: '' }] }])
+    );
+    setDocId(null);
+    setTitle('Untitled');
+    setDirty(true);
+  };
+
+  const switchDoc = async (id: string) => {
+    if (dirty && !window.confirm('Discard unsaved changes?')) return;
+    setLoading(true);
+    try {
+      await loadDoc(id);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTitleChange = (value: string) => {
+    setTitle(value);
+    setDirty(true);
+  };
+
   return (
-    <Plate editor={editor}>
-      <EditorContainer>
-        <Editor variant="demo" />
-      </EditorContainer>
+    <Plate editor={editor} onValueChange={markDirty}>
+      <div className="flex h-full flex-col">
+        <div className="flex flex-wrap items-center gap-2 border-border border-b px-4 py-2">
+          <select
+            aria-label="Documents"
+            className="h-8 max-w-56 rounded-md border border-input bg-background px-2 text-sm"
+            disabled={loading}
+            onChange={(e) => switchDoc(e.target.value)}
+            value={docId ?? ''}
+          >
+            <option disabled value="">
+              {loading ? 'Loading…' : 'Select a document…'}
+            </option>
+            {docs.map((doc) => (
+              <option key={doc.id} value={doc.id}>
+                {doc.title}
+              </option>
+            ))}
+          </select>
+
+          <input
+            aria-label="Document title"
+            className="h-8 rounded-md border border-input bg-background px-2 text-sm"
+            onChange={(e) => handleTitleChange(e.target.value)}
+            value={title}
+          />
+
+          <button
+            className="h-8 rounded-md border border-input px-3 text-sm hover:bg-muted"
+            onClick={newDoc}
+            type="button"
+          >
+            New
+          </button>
+
+          <button
+            className="h-8 rounded-md bg-primary px-3 text-primary-foreground text-sm disabled:opacity-50"
+            disabled={saving || !dirty}
+            onClick={saveDoc}
+            type="button"
+          >
+            {saving ? 'Saving…' : dirty ? 'Save' : 'Saved'}
+          </button>
+        </div>
+
+        <EditorContainer className="flex-1">
+          <Editor variant="demo" />
+        </EditorContainer>
+      </div>
 
       <SettingsDialog />
     </Plate>
   );
 }
-
-const value = normalizeStaticValue([
-  {
-    children: [{ text: 'Welcome to the Portal Playground!' }],
-    type: 'h1',
-  },
-  {
-    children: [
-      { text: 'Experience a modern rich-text editor built with ' },
-      { children: [{ text: 'Slate' }], type: 'a', url: 'https://portalos.ru' },
-      { text: ' and ' },
-      { children: [{ text: 'React' }], type: 'a', url: 'https://ui.portalos.ru' },
-      {
-        text: ". This playground showcases just a part of Portal's capabilities. ",
-      },
-      {
-        children: [{ text: 'Explore the documentation' }],
-        type: 'a',
-        url: '/docs',
-      },
-      { text: ' to discover more.' },
-    ],
-    type: 'p',
-  },
-  // Suggestions & Comments Section
-  {
-    children: [{ text: 'Collaborative Editing' }],
-    type: 'h2',
-  },
-  {
-    children: [
-      { text: 'Review and refine content seamlessly. Use ' },
-      {
-        children: [
-          {
-            suggestion: true,
-            suggestion_playground1: {
-              id: 'playground1',
-              createdAt: Date.now(),
-              type: 'insert',
-              userId: 'alice',
-            },
-            text: 'suggestions',
-          },
-        ],
-        type: 'a',
-        url: '/docs/suggestion',
-      },
-      {
-        suggestion: true,
-        suggestion_playground1: {
-          id: 'playground1',
-          createdAt: Date.now(),
-          type: 'insert',
-          userId: 'alice',
-        },
-        text: ' ',
-      },
-      {
-        suggestion: true,
-        suggestion_playground1: {
-          id: 'playground1',
-          createdAt: Date.now(),
-          type: 'insert',
-          userId: 'alice',
-        },
-        text: 'like this added text',
-      },
-      { text: ' or to ' },
-      {
-        suggestion: true,
-        suggestion_playground2: {
-          id: 'playground2',
-          createdAt: Date.now(),
-          type: 'remove',
-          userId: 'bob',
-        },
-        text: 'mark text for removal',
-      },
-      { text: '. Discuss changes using ' },
-      {
-        children: [
-          { comment: true, comment_discussion1: true, text: 'comments' },
-        ],
-        type: 'a',
-        url: '/docs/comment',
-      },
-      {
-        comment: true,
-        comment_discussion1: true,
-        text: ' on many text segments',
-      },
-      { text: '. You can even have ' },
-      {
-        comment: true,
-        comment_discussion2: true,
-        suggestion: true,
-        suggestion_playground3: {
-          id: 'playground3',
-          createdAt: Date.now(),
-          type: 'insert',
-          userId: 'charlie',
-        },
-        text: 'overlapping',
-      },
-      { text: ' annotations!' },
-    ],
-    type: 'p',
-  },
-  // {
-  //   children: [
-  //     {
-  //       text: 'Block-level suggestions are also supported for broader feedback.',
-  //     },
-  //   ],
-  //   suggestion: {
-  //     suggestionId: 'suggestionBlock1',
-  //     type: 'block',
-  //     userId: 'charlie',
-  //   },
-  //   type: 'p',
-  // },
-  // AI Section
-  {
-    children: [{ text: 'AI-Powered Editing' }],
-    type: 'h2',
-  },
-  {
-    children: [
-      { text: 'Boost your productivity with integrated ' },
-      {
-        children: [{ text: 'AI SDK' }],
-        type: 'a',
-        url: '/docs/ai',
-      },
-      { text: '. Press ' },
-      { kbd: true, text: '⌘+J' },
-      { text: ' or ' },
-      { kbd: true, text: 'Space' },
-      { text: ' in an empty line to:' },
-    ],
-    type: 'p',
-  },
-  {
-    children: [
-      { text: 'Generate content (continue writing, summarize, explain)' },
-    ],
-    indent: 1,
-    listStyleType: 'disc',
-    type: 'p',
-  },
-  {
-    children: [
-      { text: 'Edit existing text (improve, fix grammar, change tone)' },
-    ],
-    indent: 1,
-    listStyleType: 'disc',
-    type: 'p',
-  },
-  // Core Features Section (Combined)
-  {
-    children: [{ text: 'Rich Content Editing' }],
-    type: 'h2',
-  },
-  {
-    children: [
-      { text: 'Structure your content with ' },
-      {
-        children: [{ text: 'headings' }],
-        type: 'a',
-        url: '/docs/heading',
-      },
-      { text: ', ' },
-      {
-        children: [{ text: 'lists' }],
-        type: 'a',
-        url: '/docs/list',
-      },
-      { text: ', and ' },
-      {
-        children: [{ text: 'quotes' }],
-        type: 'a',
-        url: '/docs/blockquote',
-      },
-      { text: '. Apply ' },
-      {
-        children: [{ text: 'marks' }],
-        type: 'a',
-        url: '/docs/basic-marks',
-      },
-      { text: ' like ' },
-      { bold: true, text: 'bold' },
-      { text: ', ' },
-      { italic: true, text: 'italic' },
-      { text: ', ' },
-      { text: 'underline', underline: true },
-      { text: ', ' },
-      { strikethrough: true, text: 'strikethrough' },
-      { text: ', and ' },
-      { code: true, text: 'code' },
-      { text: '. Use ' },
-      {
-        children: [{ text: 'autoformatting' }],
-        type: 'a',
-        url: '/docs/autoformat',
-      },
-      { text: ' for ' },
-      {
-        children: [{ text: 'Markdown' }],
-        type: 'a',
-        url: '/docs/markdown',
-      },
-      { text: '-like shortcuts (e.g., ' },
-      { kbd: true, text: '* ' },
-      { text: ' for lists, ' },
-      { kbd: true, text: '# ' },
-      { text: ' for H1).' },
-    ],
-    type: 'p',
-  },
-  {
-    children: [
-      {
-        children: [
-          {
-            text: 'Blockquotes can group paragraphs, quoted lists, and reply chains.',
-          },
-        ],
-        type: 'p',
-      },
-      {
-        children: [
-          {
-            text: 'Markdown blockquotes keep this nested structure instead of flattening it.',
-          },
-        ],
-        type: 'p',
-      },
-      {
-        children: [
-          {
-            text: 'Quoted list item inside the same container.',
-          },
-        ],
-        indent: 1,
-        listStyleType: 'disc',
-        type: 'p',
-      },
-      {
-        children: [
-          {
-            children: [{ text: 'Nested blockquotes work here too.' }],
-            type: 'p',
-          },
-        ],
-        type: 'blockquote',
-      },
-    ],
-    type: 'blockquote',
-  },
-  {
-    children: [
-      { children: [{ text: 'function hello() {' }], type: 'code_line' },
-      {
-        children: [{ text: "  console.info('Code blocks are supported!');" }],
-        type: 'code_line',
-      },
-      { children: [{ text: '}' }], type: 'code_line' },
-    ],
-    lang: 'javascript',
-    type: 'code_block',
-  },
-  {
-    children: [
-      { text: 'Create ' },
-      {
-        children: [{ text: 'links' }],
-        type: 'a',
-        url: '/docs/link',
-      },
-      { text: ', ' },
-      {
-        children: [{ text: '@mention' }],
-        type: 'a',
-        url: '/docs/mention',
-      },
-      { text: ' users like ' },
-      { children: [{ text: '' }], type: 'mention', value: 'Alice' },
-      { text: ', or insert ' },
-      {
-        children: [{ text: 'emojis' }],
-        type: 'a',
-        url: '/docs/emoji',
-      },
-      { text: ' ✨. Use the ' },
-      {
-        children: [{ text: 'slash command' }],
-        type: 'a',
-        url: '/docs/slash-command',
-      },
-      { text: ' (/) for quick access to elements.' },
-    ],
-    type: 'p',
-  },
-  // Table Section
-  {
-    children: [{ text: 'How Portal Compares' }],
-    type: 'h3',
-  },
-  {
-    children: [
-      {
-        text: 'Portal offers many features out-of-the-box as free, open-source plugins.',
-      },
-    ],
-    type: 'p',
-  },
-  {
-    children: [
-      {
-        children: [
-          {
-            children: [
-              { children: [{ bold: true, text: 'Feature' }], type: 'p' },
-            ],
-            type: 'th',
-          },
-          {
-            children: [
-              {
-                children: [{ bold: true, text: 'Portal (Free & OSS)' }],
-                type: 'p',
-              },
-            ],
-            type: 'th',
-          },
-          {
-            children: [
-              { children: [{ bold: true, text: 'Tiptap' }], type: 'p' },
-            ],
-            type: 'th',
-          },
-        ],
-        type: 'tr',
-      },
-      {
-        children: [
-          {
-            children: [{ children: [{ text: 'AI' }], type: 'p' }],
-            type: 'td',
-          },
-          {
-            children: [
-              {
-                attributes: { align: 'center' },
-                children: [{ text: '✅' }],
-                type: 'p',
-              },
-            ],
-            type: 'td',
-          },
-          {
-            children: [{ children: [{ text: 'Paid Extension' }], type: 'p' }],
-            type: 'td',
-          },
-        ],
-        type: 'tr',
-      },
-      {
-        children: [
-          {
-            children: [{ children: [{ text: 'Comments' }], type: 'p' }],
-            type: 'td',
-          },
-          {
-            children: [
-              {
-                attributes: { align: 'center' },
-                children: [{ text: '✅' }],
-                type: 'p',
-              },
-            ],
-            type: 'td',
-          },
-          {
-            children: [{ children: [{ text: 'Paid Extension' }], type: 'p' }],
-            type: 'td',
-          },
-        ],
-        type: 'tr',
-      },
-      {
-        children: [
-          {
-            children: [{ children: [{ text: 'Suggestions' }], type: 'p' }],
-            type: 'td',
-          },
-          {
-            children: [
-              {
-                attributes: { align: 'center' },
-                children: [{ text: '✅' }],
-                type: 'p',
-              },
-            ],
-            type: 'td',
-          },
-          {
-            children: [
-              { children: [{ text: 'Paid (Comments Pro)' }], type: 'p' },
-            ],
-            type: 'td',
-          },
-        ],
-        type: 'tr',
-      },
-      {
-        children: [
-          {
-            children: [{ children: [{ text: 'Emoji Picker' }], type: 'p' }],
-            type: 'td',
-          },
-          {
-            children: [
-              {
-                attributes: { align: 'center' },
-                children: [{ text: '✅' }],
-                type: 'p',
-              },
-            ],
-            type: 'td',
-          },
-          {
-            children: [{ children: [{ text: 'Paid Extension' }], type: 'p' }],
-            type: 'td',
-          },
-        ],
-        type: 'tr',
-      },
-      {
-        children: [
-          {
-            children: [
-              { children: [{ text: 'Table of Contents' }], type: 'p' },
-            ],
-            type: 'td',
-          },
-          {
-            children: [
-              {
-                attributes: { align: 'center' },
-                children: [{ text: '✅' }],
-                type: 'p',
-              },
-            ],
-            type: 'td',
-          },
-          {
-            children: [{ children: [{ text: 'Paid Extension' }], type: 'p' }],
-            type: 'td',
-          },
-        ],
-        type: 'tr',
-      },
-      {
-        children: [
-          {
-            children: [{ children: [{ text: 'Drag Handle' }], type: 'p' }],
-            type: 'td',
-          },
-          {
-            children: [
-              {
-                attributes: { align: 'center' },
-                children: [{ text: '✅' }],
-                type: 'p',
-              },
-            ],
-            type: 'td',
-          },
-          {
-            children: [{ children: [{ text: 'Paid Extension' }], type: 'p' }],
-            type: 'td',
-          },
-        ],
-        type: 'tr',
-      },
-      {
-        children: [
-          {
-            children: [
-              { children: [{ text: 'Collaboration (Yjs)' }], type: 'p' },
-            ],
-            type: 'td',
-          },
-          {
-            children: [
-              {
-                attributes: { align: 'center' },
-                children: [{ text: '✅' }],
-                type: 'p',
-              },
-            ],
-            type: 'td',
-          },
-          {
-            children: [
-              { children: [{ text: 'Hocuspocus (OSS/Paid)' }], type: 'p' },
-            ],
-            type: 'td',
-          },
-        ],
-        type: 'tr',
-      },
-    ],
-    type: 'table',
-  },
-  // Media Section
-  {
-    children: [{ text: 'Images and Media' }],
-    type: 'h3',
-  },
-  {
-    children: [
-      {
-        text: 'Embed rich media like images directly in your content. Supports ',
-      },
-      {
-        children: [{ text: 'Media uploads' }],
-        type: 'a',
-        url: '/docs/media',
-      },
-      {
-        text: ' and ',
-      },
-      {
-        children: [{ text: 'drag & drop' }],
-        type: 'a',
-        url: '/docs/dnd',
-      },
-      {
-        text: ' for a smooth experience.',
-      },
-    ],
-    type: 'p',
-  },
-  {
-    attributes: { align: 'center' },
-    caption: [
-      {
-        children: [{ text: 'Images with captions provide context.' }],
-        type: 'p',
-      },
-    ],
-    children: [{ text: '' }],
-    type: 'img',
-    url: 'https://images.unsplash.com/photo-1712688930249-98e1963af7bd?q=80&w=600&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D',
-    width: '75%',
-  },
-  {
-    children: [{ text: '' }],
-    isUpload: true,
-    name: 'sample.pdf',
-    type: 'file',
-    url: 'https://s26.q4cdn.com/900411403/files/doc_downloads/test.pdf',
-  },
-  {
-    children: [{ text: '' }],
-    type: 'audio',
-    url: 'https://samplelib.com/lib/preview/mp3/sample-3s.mp3',
-  },
-  {
-    children: [{ text: 'Table of Contents' }],
-    type: 'h3',
-  },
-  {
-    children: [{ text: '' }],
-    type: 'toc',
-  },
-  {
-    children: [{ text: '' }],
-    type: 'p',
-  },
-]);

@@ -7,6 +7,8 @@ import type { TElement } from 'platejs';
 
 import { GhostText } from '@/components/ui/ghost-text';
 
+import { backendUrl } from '@/lib/backend';
+
 import { MarkdownKit } from './markdown-kit';
 
 export const CopilotKit = [
@@ -14,7 +16,7 @@ export const CopilotKit = [
   CopilotPlugin.configure(({ api }) => ({
     options: {
       completeOptions: {
-        api: '/api/ai/copilot',
+        api: backendUrl('/api/ai/copilot'),
         body: {
           instructions: `You are an advanced AI writing assistant, similar to VSCode Copilot but for general text. Your task is to predict and generate the next part of the text based on the given context.
   
